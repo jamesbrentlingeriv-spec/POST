@@ -1,0 +1,94 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  --theme-bg: #f8fafc;
+  --theme-card: #ffffff;
+  --theme-text: #010101;
+  --theme-border: #000000;
+  --theme-accent: #ef4444;
+  --theme-muted: #64748b;
+}
+
+.theme-dark {
+  --theme-bg: #000000;
+  --theme-card: #000000;
+  --theme-text: #ffffff;
+  --theme-border: #ffffff;
+  --theme-accent: #ef4444;
+  --theme-muted: #94a3b8;
+}
+
+@layer base {
+  body {
+    background-color: var(--theme-bg);
+    color: var(--theme-text);
+    transition: background-color 0.2s, color 0.2s;
+  }
+}
+
+@layer utilities {
+  .bg-theme-bg { background-color: var(--theme-bg); }
+  .bg-theme-card { background-color: var(--theme-card); }
+  .text-theme-text { color: var(--theme-text); }
+  .text-theme-muted { color: var(--theme-muted); }
+  .text-theme-accent { color: var(--theme-accent); }
+  .border-theme-border { 
+    border-color: var(--theme-border); 
+    border-width: 2px; 
+  }
+  .border-theme-main {
+    border-color: var(--theme-border);
+    border-width: 4px;
+    border-style: solid;
+  }
+  
+  .mirror {
+    transform: scaleX(-1);
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .printable-page, .printable-page * {
+    visibility: visible;
+  }
+  .printable-page {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  /* Specific print layout for P.O.S.T. */
+  .fixed.inset-0.bg-white.z-\[99999\] {
+    visibility: visible !important;
+    position: static !important;
+    display: block !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  .fixed.inset-0.bg-white.z-\[99999\] * {
+    visibility: visible !important;
+  }
+
+  @page {
+    size: letter landscape;
+    margin: 0.5in;
+  }
+}

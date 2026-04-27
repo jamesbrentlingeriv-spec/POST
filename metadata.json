@@ -1,0 +1,8 @@
+{
+  "name": "Pal Optical P.O.S.T.",
+  "description": "Modern Pal Optical Slip Tool for processing prescriptions, measurements, and billing orders.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": []
+}
