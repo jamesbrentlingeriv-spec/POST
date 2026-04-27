@@ -94,7 +94,7 @@ export function Catalog({ currentPlan, onSelectItem, className }: CatalogProps) 
             <button
               key={`${item.name}-${idx}`}
               onClick={() => onSelectItem(item.name, item.price, item.category)}
-              className="group bg-theme-card p-4 rounded-xl border border-theme-border text-left hover:bg-theme-bg hover:shadow-lg transition-all"
+              className="group bg-theme-card p-4 rounded-xl border border-theme-border text-left hover:bg-green-500/20 hover:border-green-500 hover:shadow-lg transition-all"
             >
               <div className="flex justify-between items-start mb-2">
                 <span className="p-1 px-2 rounded bg-theme-bg border border-theme-border text-[9px] font-black uppercase text-theme-text">

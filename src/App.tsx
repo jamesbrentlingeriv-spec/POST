@@ -669,8 +669,6 @@ export default function App() {
 
   // --- SUBMISSION ---
   const handlePrint = async () => {
-    if (!patient || !user) return;
-
     const snapshot: JobSnapshot = {
       jobNum,
       optician: user.initials,
@@ -799,7 +797,8 @@ export default function App() {
   }
 
   // --- MAIN APP UI ---
-  const isPrintDisabled = !patient || !phone || (!frame && plan !== "EYE-MED"); // Simplified validation example
+  const missingFields: string[] = [];
+  const isPrintDisabled = false;
 
   return (
     <div className={`flex flex-col md:flex-row h-screen overflow-hidden transition-all ${theme === 'dark' ? 'theme-dark bg-theme-bg' : 'bg-slate-50'}`}>
@@ -807,7 +806,7 @@ export default function App() {
 
       {/* CENTER: WORKBENCH */}
       <main className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-hide">
-        <div className="max-w-2xl ml-0 space-y-8">
+        <div className="max-w-2xl mx-auto space-y-8">
           {/* HEADER DASHBOARD */}
           <header className={`flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-6 transition-colors ${theme === 'dark' ? 'border-white' : 'border-black'}`}>
             <div className="flex items-center gap-4">
@@ -844,20 +843,30 @@ export default function App() {
                   {jobNum}
                 </span>
               </div>
-              <button
-                onClick={handlePrint}
-                disabled={isPrintDisabled}
-                className={`rounded-2xl px-6 py-2 flex items-center gap-2 font-black uppercase text-xs tracking-widest transition-all border-2 ${
-                  !isPrintDisabled
-                    ? "bg-green-500 border-green-500 text-white hover:bg-green-600 shadow-lg shadow-green-500/30 cursor-pointer"
-                    : theme === 'dark'
-                    ? "bg-white border-white text-black opacity-50 cursor-not-allowed"
-                    : "bg-transparent border-black text-black opacity-50 cursor-not-allowed"
-                }`}
-              >
-                <Printer className="w-4 h-4" />
-                Submit Order
-              </button>
+              <div className="flex flex-col items-end gap-1">
+                <button
+                  onClick={handlePrint}
+                  disabled={isPrintDisabled}
+                  className={`rounded-2xl px-6 py-2 flex items-center gap-2 font-black uppercase text-xs tracking-widest transition-all border-2 ${
+                    !isPrintDisabled
+                      ? "bg-green-500 border-green-500 text-white hover:bg-green-600 shadow-lg shadow-green-500/30 cursor-pointer"
+                      : theme === 'dark'
+                      ? "bg-white border-white text-black opacity-50 cursor-not-allowed"
+                      : "bg-transparent border-black text-black opacity-50 cursor-not-allowed"
+                  }`}
+                >
+                  <Printer className="w-4 h-4" />
+                  Submit Order
+                </button>
+                {missingFields.length > 0 && (
+                  <div className="text-right">
+                    <p className="text-[9px] font-black uppercase text-red-500 tracking-widest">⚠ Caution</p>
+                    {missingFields.map(f => (
+                      <p key={f} className="text-[9px] font-bold text-red-500 uppercase">• {f}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => setUser(null)}
                 className="p-3 bg-theme-card border-theme-border rounded-2xl text-theme-text hover:text-red-500"
