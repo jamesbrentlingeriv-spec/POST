@@ -25,7 +25,7 @@ import {
   AlertCircle,
   FileText,
   X,
-  ChevronDown,
+  ChevronDown
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -1058,26 +1058,66 @@ export default function App() {
                   <CreditCard className="w-3 h-3 text-theme-accent" /> Use Camera Grid
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-3">
                 <div className="bg-theme-bg p-3 rounded-2xl border-theme-border">
                   <label className="block text-[9px] font-black uppercase text-theme-text font-bold mb-1 tracking-wider">
-                    P.D.
+                    Frame Name
                   </label>
                   <input
                     className="w-full bg-transparent font-black text-lg outline-none text-theme-text"
-                    value={pd}
-                    onChange={(e) => setPd(e.target.value)}
+                    placeholder="e.g. Ray-Ban RB5154"
+                    value={frame}
+                    onChange={(e) => {
+                      setFrame(e.target.value);
+                      updateBillingRow("frame", { label: e.target.value ? `FRAME: ${e.target.value}` : "FRAME" });
+                    }}
                   />
                 </div>
-                <div className="bg-theme-bg p-3 rounded-2xl border-theme-border">
-                  <label className="block text-[9px] font-black uppercase text-theme-text font-bold mb-1 tracking-wider">
-                    Seg Height
-                  </label>
-                  <input
-                    className="w-full bg-transparent font-black text-lg outline-none text-theme-text"
-                    value={seg}
-                    onChange={(e) => setSeg(e.target.value)}
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-theme-bg p-3 rounded-2xl border-theme-border">
+                    <label className="block text-[9px] font-black uppercase text-theme-text font-bold mb-1 tracking-wider">
+                      Eye Size (A)
+                    </label>
+                    <input
+                      className="w-full bg-transparent font-black text-lg outline-none text-theme-text"
+                      placeholder="e.g. 52"
+                      value={frameA}
+                      onChange={(e) => setFrameA(e.target.value)}
+                    />
+                  </div>
+                  <div className="bg-theme-bg p-3 rounded-2xl border-theme-border">
+                    <label className="block text-[9px] font-black uppercase text-theme-text font-bold mb-1 tracking-wider">
+                      DBL / Bridge
+                    </label>
+                    <input
+                      className="w-full bg-transparent font-black text-lg outline-none text-theme-text"
+                      placeholder="e.g. 18"
+                      value={frameDbl}
+                      onChange={(e) => setFrameDbl(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-theme-bg p-3 rounded-2xl border-theme-border">
+                    <label className="block text-[9px] font-black uppercase text-theme-text font-bold mb-1 tracking-wider">
+                      P.D.
+                    </label>
+                    <input
+                      className="w-full bg-transparent font-black text-lg outline-none text-theme-text"
+                      value={pd}
+                      onChange={(e) => setPd(e.target.value)}
+                    />
+                  </div>
+                  <div className="bg-theme-bg p-3 rounded-2xl border-theme-border">
+                    <label className="block text-[9px] font-black uppercase text-theme-text font-bold mb-1 tracking-wider">
+                      Seg Height
+                    </label>
+                    <input
+                      className="w-full bg-transparent font-black text-lg outline-none text-theme-text"
+                      value={seg}
+                      onChange={(e) => setSeg(e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
             </section>
