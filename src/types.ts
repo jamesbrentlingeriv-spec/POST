@@ -56,3 +56,26 @@ export interface JobSnapshot {
   billing: Record<string, BillingRow>;
   timestamp: number;
 }
+
+export interface InsuranceVerificationResult {
+  hasBenefits: boolean;
+  eligibilityStatus: "ACTIVE" | "INACTIVE" | "TERMINATED" | "EXHAUSTED" | "NOT_FOUND" | "UNKNOWN";
+  statusReason: string;
+  matchedPlan: InsurancePlan;
+  carrierName: string;
+  patientName?: string;
+  memberId?: string;
+  dob?: string;
+  effectiveDate?: string;
+  terminationDate?: string;
+  frameAllowance?: number;
+  isAllowancePlan: boolean;
+  globalAllowance?: number;
+  examCopay?: number;
+  materialsCopay?: number;
+  progressiveCopay?: number;
+  arCopay?: number;
+  rawSummary: string;
+  warnings: string[];
+  verifiedAt: number;
+}

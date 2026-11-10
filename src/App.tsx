@@ -25,7 +25,10 @@ import {
   AlertCircle,
   FileText,
   X,
-  ChevronDown
+  ChevronDown,
+  ShieldAlert,
+  Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -35,11 +38,12 @@ import {
   MEDICAID_TYPES,
   MEDICAID_CODES,
 } from "./constants";
-import { InsurancePlan, RxValue, BillingRow, JobSnapshot } from "./types";
+import { InsurancePlan, RxValue, BillingRow, JobSnapshot, InsuranceVerificationResult } from "./types";
 import { SignaturePad } from "./components/SignaturePad";
 import { MeasurementTool } from "./components/MeasurementTool";
 import { PatientForm } from "./components/PatientForm";
 import { Catalog } from "./components/Catalog";
+import { InsuranceLookupModal } from "./components/InsuranceLookupModal";
 
 // Utility for formatting numbers to currency
 const f = (n: number | string) => {
@@ -183,6 +187,8 @@ export default function App() {
   const [showMeasureTool, setShowMeasureTool] = useState(false);
   const [showPatientForm, setShowPatientForm] = useState(false);
   const [showCatalog, setShowCatalog] = useState(false);
+  const [showInsuranceLookup, setShowInsuranceLookup] = useState(false);
+  const [verifiedInsurance, setVerifiedInsurance] = useState<InsuranceVerificationResult | null>(null);
   const [signature, setSignature] = useState("");
   const [isPrinting, setIsPrinting] = useState(false);
 
@@ -365,6 +371,83 @@ export default function App() {
     });
   };
 
+  const applyVerifiedBenefits = (res: InsuranceVerificationResult) => {
+    setVerifiedInsurance(res);
+    setPlan(res.matchedPlan);
+    setIsAllowancePlan(res.isAllowancePlan);
+    const globalAmt = res.globalAllowance || 0;
+    const frameAmt = res.frameAllowance || 0;
+    setGlobalAllowance(globalAmt);
+    setFrameAllowance(frameAmt);
+
+    // Recalculate billing rows immediately with verified benefits
+    setBilling((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((key) => {
+        const row = next[key];
+        if (row.retail) {
+          const r = parseFloat(row.retail) || 0;
+          let oweVal = r * 1.06;
+
+          if (res.matchedPlan === "MEDICAID" || res.matchedPlan === "SCHOOL LETTER") {
+            oweVal = 0;
+          } else if (
+            key === "frame" &&
+            !res.isAllowancePlan &&
+            (res.matchedPlan === "VSP" ||
+              res.matchedPlan === "EYE-MED" ||
+              res.matchedPlan === "AETNA EYE-MED" ||
+              res.matchedPlan === "MARCH/EYESYNERGY")
+          ) {
+            const overage = Math.max(0, r - frameAmt);
+            oweVal = overage * 0.8 * 1.06;
+          } else if (key === "lens" && !res.isAllowancePlan && res.progressiveCopay && res.progressiveCopay > 0) {
+            oweVal = res.progressiveCopay;
+          } else if (key === "coat" && !res.isAllowancePlan && res.arCopay && res.arCopay > 0) {
+            oweVal = res.arCopay;
+          }
+
+          next[key] = { ...row, owe: oweVal.toFixed(2) };
+        }
+      });
+      return next;
+    });
+  };
+
+  const applyPrivatePayDueToNoBenefits = () => {
+    setVerifiedInsurance({
+      hasBenefits: false,
+      eligibilityStatus: "INACTIVE",
+      statusReason: "Patient has no active vision hardware coverage. Private pay pricing applied.",
+      matchedPlan: "None",
+      carrierName: "Private Pay",
+      rawSummary: "Patient billed at standard retail rates with Kentucky 6% sales tax.",
+      warnings: ["No active vision benefits. Retail rates applied."],
+      isAllowancePlan: false,
+      frameAllowance: 0,
+      globalAllowance: 0,
+      progressiveCopay: 0,
+      arCopay: 0,
+      verifiedAt: Date.now(),
+    });
+    setPlan("None");
+    setIsAllowancePlan(false);
+    setGlobalAllowance(0);
+    setFrameAllowance(0);
+
+    setBilling((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((key) => {
+        const row = next[key];
+        if (row.retail) {
+          const r = parseFloat(row.retail) || 0;
+          next[key] = { ...row, owe: (r * 1.06).toFixed(2) };
+        }
+      });
+      return next;
+    });
+  };
+
   const calcOwe = (retail: string, key: string) => {
     const r = parseFloat(retail) || 0;
     if (plan === "MEDICAID" || plan === "SCHOOL LETTER") return "0.00";
@@ -372,10 +455,17 @@ export default function App() {
 
     // EyeMed Allowance Logic: (Total Retail - Global Allowance) - 20%
     if (isAllowancePlan && globalAllowance > 0) {
-      // This is handled in finalOwe but we can reflect it per line if needed
-      // Actually the prompt says: "if its eyemed allowance plan it also takes 20% off the leftover amount then puts that in the pt owe box"
-      // This implies the calculation applies to the total.
       return (r * 1.06).toFixed(2);
+    }
+
+    // Fixed Copays from Verified Benefits
+    if (verifiedInsurance && verifiedInsurance.hasBenefits && !isAllowancePlan) {
+      if (key === "lens" && verifiedInsurance.progressiveCopay && verifiedInsurance.progressiveCopay > 0) {
+        return verifiedInsurance.progressiveCopay.toFixed(2);
+      }
+      if (key === "coat" && verifiedInsurance.arCopay && verifiedInsurance.arCopay > 0) {
+        return verifiedInsurance.arCopay.toFixed(2);
+      }
     }
 
     // Frame Allowance logic for VSP or EyeMed Non-Allowance
@@ -392,8 +482,6 @@ export default function App() {
     }
 
     if (isAllowancePlan && isEyeMedGroup) {
-      // In allowance plans, individual rows show full price with tax, 
-      // but the final total handles the global discount.
       return (r * 1.06).toFixed(2);
     }
 
@@ -889,11 +977,33 @@ export default function App() {
                 <Plus className="w-4 h-4" />
               </button>
 
+              <button
+                onClick={() => setShowInsuranceLookup(true)}
+                className="w-full bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-blue-500/10 hover:from-indigo-500/20 hover:via-purple-500/20 hover:to-blue-500/20 text-theme-text border border-indigo-500/30 rounded-xl py-3 px-4 flex items-center justify-between font-black uppercase text-[10px] tracking-widest transition-all shadow-sm"
+              >
+                <span className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                  <Sparkles className="w-4 h-4 text-indigo-500" /> Verify Insurance & Benefits
+                </span>
+                <span className="text-[9px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 font-bold border border-indigo-500/30">
+                  Portal / AI
+                </span>
+              </button>
+
               <div className="space-y-3">
                 <div>
-                  <label className="block text-[10px] font-black uppercase text-theme-text mb-1">
-                    Insurance Plan
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[10px] font-black uppercase text-theme-text">
+                      Insurance Plan
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowInsuranceLookup(true)}
+                      className="text-[10px] font-black uppercase tracking-wider text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 transition-all"
+                    >
+                      <Search className="w-3 h-3" />
+                      Verify
+                    </button>
+                  </div>
                   <select
                     value={plan}
                     onChange={(e) =>
@@ -916,6 +1026,74 @@ export default function App() {
                     <option value="WELLCARE MEDICARE">WELLCARE MEDICARE</option>
                   </select>
                 </div>
+
+                {/* ACTIVE VERIFICATION / INELIGIBLE CAUTION CARD */}
+                {verifiedInsurance && (
+                  !verifiedInsurance.hasBenefits ? (
+                    <div className="p-3.5 bg-rose-500/10 border-2 border-rose-500/60 rounded-2xl space-y-2 transition-all">
+                      <div className="flex items-start gap-2.5">
+                        <ShieldAlert className="w-5 h-5 text-rose-500 shrink-0 mt-0.5 animate-pulse" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-[10px] font-black uppercase text-rose-600 dark:text-rose-400 tracking-wider">
+                              ⚠️ CAUTION: NO ACTIVE BENEFITS
+                            </span>
+                            <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-500 uppercase">
+                              {verifiedInsurance.eligibilityStatus}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-rose-700 dark:text-rose-300 font-medium leading-snug mt-1">
+                            {verifiedInsurance.statusReason}
+                          </p>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 font-semibold">
+                            Billed at Private Pay / Retail rates with 6% sales tax.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between pt-1 border-t border-rose-500/20 text-[10px]">
+                        <button
+                          type="button"
+                          onClick={() => setShowInsuranceLookup(true)}
+                          className="font-bold text-rose-600 dark:text-rose-400 hover:underline"
+                        >
+                          View Details / Re-verify
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setVerifiedInsurance(null)}
+                          className="text-slate-400 hover:text-slate-600 font-bold"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/40 rounded-2xl flex items-center justify-between transition-all">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                          <ShieldCheck className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                            Verified: {verifiedInsurance.matchedPlan}
+                          </div>
+                          <div className="text-[11px] font-bold text-theme-text">
+                            {verifiedInsurance.isAllowancePlan
+                              ? `$${verifiedInsurance.globalAllowance} Total Allowance Active`
+                              : `$${verifiedInsurance.frameAllowance} Frame Allow · Prog Copay: $${verifiedInsurance.progressiveCopay || 0} · AR: $${verifiedInsurance.arCopay || 0}`}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowInsuranceLookup(true)}
+                        className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline px-2 py-1 rounded-lg bg-emerald-500/10"
+                      >
+                        Details
+                      </button>
+                    </div>
+                  )
+                )}
 
                 {plan === "MEDICAID" && (
                   <div className="grid grid-cols-2 gap-3 p-4 bg-theme-bg rounded-2xl border-theme-border">
@@ -1536,6 +1714,15 @@ export default function App() {
                 </AnimatePresence>
               </div>
 
+              {verifiedInsurance && !verifiedInsurance.hasBenefits && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/40 rounded-xl flex items-center gap-2 text-rose-500 text-xs">
+                  <ShieldAlert className="w-4 h-4 shrink-0 animate-pulse text-rose-500" />
+                  <span className="font-bold text-[11px]">
+                    Caution: Patient has no active benefits ({verifiedInsurance.eligibilityStatus}). Priced at standard retail rates.
+                  </span>
+                </div>
+              )}
+
               <div className="pt-4 flex justify-between items-end">
                 <div>
                   <label className="block text-[10px] font-black uppercase text-theme-text mb-1">
@@ -1627,6 +1814,14 @@ export default function App() {
             }}
           />
         )}
+        <InsuranceLookupModal
+          isOpen={showInsuranceLookup}
+          onClose={() => setShowInsuranceLookup(false)}
+          patientName={patient}
+          phone={phone}
+          onApplyBenefits={(res) => applyVerifiedBenefits(res)}
+          onApplyPrivatePay={() => applyPrivatePayDueToNoBenefits()}
+        />
       </AnimatePresence>
 
       {/* MAIL ADDRESS MODAL */}
