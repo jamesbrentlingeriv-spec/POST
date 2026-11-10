@@ -879,6 +879,27 @@ export default function App() {
               Login Device
             </button>
           </form>
+
+          <div className="pt-6 border-t border-theme-border mt-6">
+            <label className="block text-[9px] font-black uppercase text-slate-400 mb-2 text-center tracking-wider">
+              Quick Select Optician (1-Tap Login)
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {Object.keys(USERS).map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => {
+                    setUser({ name, initials: USERS[name].initials });
+                  }}
+                  className="py-2.5 px-3 rounded-xl bg-theme-bg hover:bg-indigo-600 hover:text-white text-xs font-black text-theme-text border border-theme-border transition-all flex items-center justify-between"
+                >
+                  <span>{name}</span>
+                  <span className="text-[10px] opacity-60 font-mono">[{USERS[name].initials}]</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </motion.div>
       </div>
     );
@@ -919,6 +940,14 @@ export default function App() {
                 title="Open Lens Catalog"
               >
                 <Search className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              </button>
+              <button
+                onClick={() => setShowInsuranceLookup(true)}
+                className="px-3.5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black uppercase text-xs tracking-wider transition-all shadow-md shadow-indigo-600/30 flex items-center gap-2 cursor-pointer"
+                title="Open Insurance Lookup & Benefit Checker"
+              >
+                <Sparkles className="w-4 h-4 text-indigo-200" />
+                <span className="hidden sm:inline">Insurance Lookup</span>
               </button>
             </div>
 
@@ -979,13 +1008,13 @@ export default function App() {
 
               <button
                 onClick={() => setShowInsuranceLookup(true)}
-                className="w-full bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-blue-500/10 hover:from-indigo-500/20 hover:via-purple-500/20 hover:to-blue-500/20 text-theme-text border border-indigo-500/30 rounded-xl py-3 px-4 flex items-center justify-between font-black uppercase text-[10px] tracking-widest transition-all shadow-sm"
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3.5 px-4 flex items-center justify-between font-black uppercase text-xs tracking-wider transition-all shadow-md shadow-indigo-600/20 cursor-pointer"
               >
-                <span className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
-                  <Sparkles className="w-4 h-4 text-indigo-500" /> Verify Insurance & Benefits
+                <span className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-indigo-200" /> Verify Insurance & Benefits
                 </span>
-                <span className="text-[9px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 font-bold border border-indigo-500/30">
-                  Portal / AI
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 text-white font-bold">
+                  AI / Portal
                 </span>
               </button>
 
@@ -998,10 +1027,10 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setShowInsuranceLookup(true)}
-                      className="text-[10px] font-black uppercase tracking-wider text-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 transition-all"
+                      className="px-2 py-0.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-all shadow-sm"
                     >
-                      <Search className="w-3 h-3" />
-                      Verify
+                      <Sparkles className="w-3 h-3 text-indigo-200" />
+                      Verify Benefits
                     </button>
                   </div>
                   <select
