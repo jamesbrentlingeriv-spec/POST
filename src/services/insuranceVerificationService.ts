@@ -99,10 +99,18 @@ export async function verifyInsuranceWithAI(
   }
 
   const ai = new GoogleGenAI({ apiKey });
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0]; // e.g. "2026-11-10"
 
   const systemInstructions = `
 You are an expert Optical Practice Billing & Vision Insurance Verification Specialist.
 Your task is to analyze vision insurance eligibility documents, portal summaries, or screenshots (from EyeMed, VSP Eyefinity, Medicaid/KyHealth, Spectera, Availity, Unum, NVA, VBA, etc.) and extract key billing data for an optical shop.
+
+CRITICAL DATE CONTEXT:
+- TODAY'S REAL DATE IS: ${todayStr} (Year: ${today.getFullYear()}).
+- Effective dates on or before ${todayStr} (such as 01/01/2026, 1/1/26, or any 2026 date prior to today) ARE ALREADY ACTIVE AND IN EFFECT!
+- NEVER claim that benefits "have not started yet" or "start in the future on 1/1/26" because 2026 IS THE CURRENT YEAR and 1/1/26 is in the past.
+- The patient's coverage IS CURRENTLY ACTIVE if effective date is on or before today!
 
 Supported Insurance Plans:
 - "MEDICAID"
@@ -122,17 +130,19 @@ Supported Insurance Plans:
 CRITICAL INSTRUCTIONS:
 1. Determine if the patient currently has ACTIVE benefits for vision hardware / glasses ("hasBenefits": true or false).
    - If status is "Terminated", "Inactive", "Exhausted", "No Hardware Benefit", "Prior service used within frequency period", or "Exam Only", set "hasBenefits": false.
+   - If effective date is on or before ${todayStr}, benefits ARE active today.
    - Provide a clear, unmistakable "statusReason" explaining WHY they do or do not have benefits.
-2. Determine "matchedPlan": match to the closest plan name from the supported list above. If not eligible or unknown, set "None".
-3. Extract:
-   - "frameAllowance": dollar amount allowed for frames (e.g. 150 for VSP/EyeMed). 0 if none.
-   - "isAllowancePlan": true if the entire benefit is a lump sum allowance (e.g. Wellcare Medicare $350 allowance, or EyeMed global allowance).
-   - "globalAllowance": total dollar amount of lump sum allowance if isAllowancePlan is true.
-   - "progressiveCopay": specific copay for progressive / multifocal lenses (e.g. 65 for Tier 1 / Standard Progressive). 0 if allowance plan or Medicaid.
-   - "arCopay": specific copay for Anti-Reflective (A/R) coating (e.g. 45 for Standard A/R). 0 if allowance plan or Medicaid.
+2. Determine "matchedPlan": Identify the vision plan or carrier explicitly mentioned in the text. Match to the closest supported name:
+   - "VSP", "EYE-MED", "AETNA EYE-MED", "SPECTERA", "WELLCARE MEDICARE", "MEDICAID", "PREMIER VISION", "UNUM", "NVA", "VBA", "SCHOOL LETTER", or "None".
+   - DO NOT default to EYE-MED if another plan or carrier is mentioned!
+3. Extract EXACT DOLLAR AMOUNTS from the user's text:
+   - "frameAllowance": Extract the EXACT frame allowance number from the text (e.g. 120, 130, 160, 200). DO NOT default to 150.
+   - "progressiveCopay": Extract the EXACT progressive / multifocal lens copay from the text (e.g. 40, 50, 55, 75, 85, 95). DO NOT default to 65.
+   - "arCopay": Extract the EXACT anti-reflective coating copay from the text (e.g. 25, 30, 35, 41, 45). DO NOT default to 45.
+   - "globalAllowance": Extract the lump-sum total allowance if specified (e.g. 250, 350, 500).
    - "examCopay" & "materialsCopay" if mentioned.
    - "patientName", "memberId", "dob", "effectiveDate", "terminationDate" if visible.
-   - "warnings": array of string alerts (e.g. "Coverage terminated on [date]", "Frame frequency not met", "20% overage applies to frame").
+   - "warnings": array of string alerts.
    - "rawSummary": 2-3 concise sentences summarizing patient's coverage for the optician.
 
 Respond STRICTLY in JSON format with this exact schema:
@@ -162,7 +172,7 @@ Respond STRICTLY in JSON format with this exact schema:
   try {
     const contents: any[] = [];
 
-    let promptText = `Please analyze this vision insurance verification info for optical billing.\nPatient Name Hint: ${input.patientNameHint || "Unknown"}\n\n`;
+    let promptText = `Please analyze this vision insurance verification info for optical billing.\nToday's Date: ${todayStr}\nPatient Name Hint: ${input.patientNameHint || "Unknown"}\n\n`;
 
     if (input.text) {
       promptText += `PORTAL TEXT CONTENT:\n"""\n${input.text}\n"""\n`;
@@ -210,8 +220,8 @@ Respond STRICTLY in JSON format with this exact schema:
       globalAllowance: typeof parsed.globalAllowance === "number" ? parsed.globalAllowance : 0,
       examCopay: typeof parsed.examCopay === "number" ? parsed.examCopay : 0,
       materialsCopay: typeof parsed.materialsCopay === "number" ? parsed.materialsCopay : 0,
-      progressiveCopay: typeof parsed.progressiveCopay === "number" ? parsed.progressiveCopay : (parsed.hasBenefits && !parsed.isAllowancePlan ? 65 : 0),
-      arCopay: typeof parsed.arCopay === "number" ? parsed.arCopay : (parsed.hasBenefits && !parsed.isAllowancePlan ? 45 : 0),
+      progressiveCopay: typeof parsed.progressiveCopay === "number" ? parsed.progressiveCopay : 0,
+      arCopay: typeof parsed.arCopay === "number" ? parsed.arCopay : 0,
       rawSummary: parsed.rawSummary || "Insurance eligibility processed.",
       warnings: Array.isArray(parsed.warnings) ? parsed.warnings : [],
       verifiedAt: Date.now(),
@@ -228,8 +238,8 @@ function normalizePlan(planStr: string): InsurancePlan {
   const upper = planStr.toUpperCase().trim();
   if (upper.includes("AETNA") && upper.includes("EYE")) return "AETNA EYE-MED";
   if (upper.includes("EYE-MED") || upper.includes("EYEMED")) return "EYE-MED";
-  if (upper.includes("VSP")) return "VSP";
-  if (upper.includes("MEDICAID")) return "MEDICAID";
+  if (upper.includes("VSP") || upper.includes("EYEFINITY")) return "VSP";
+  if (upper.includes("MEDICAID") || upper.includes("KYHEALTH")) return "MEDICAID";
   if (upper.includes("SPECTERA") || upper.includes("OPTUM")) return "SPECTERA";
   if (upper.includes("WELLCARE")) return "WELLCARE MEDICARE";
   if (upper.includes("PREMIER")) return "PREMIER VISION";
@@ -238,89 +248,124 @@ function normalizePlan(planStr: string): InsurancePlan {
   if (upper.includes("NVA")) return "NVA";
   if (upper.includes("VBA")) return "VBA";
   if (upper.includes("SCHOOL")) return "SCHOOL LETTER";
-  return "None";
+  return "EYE-MED"; // Flexible default for private vision carriers
 }
 
-// Fallback regex/heuristic parser when offline or testing without an API key
-function runOfflineFallbackParser(input: VerificationInput, errorNotice?: string): InsuranceVerificationResult {
-  const text = (input.text || "").toUpperCase();
+// Fallback dynamic extractor when offline or parsing without an API key
+export function runOfflineFallbackParser(input: VerificationInput, errorNotice?: string): InsuranceVerificationResult {
+  const rawText = input.text || "";
+  const upper = rawText.toUpperCase();
 
   const isTerminated =
-    text.includes("TERMINATED") ||
-    text.includes("INELIGIBLE") ||
-    text.includes("INACTIVE") ||
-    text.includes("EXHAUSTED") ||
-    text.includes("BENEFIT EXHAUSTED") ||
-    text.includes("NOT ELIGIBLE");
+    upper.includes("TERMINATED") ||
+    upper.includes("INELIGIBLE") ||
+    upper.includes("INACTIVE") ||
+    upper.includes("EXHAUSTED") ||
+    upper.includes("BENEFIT EXHAUSTED") ||
+    upper.includes("NOT ELIGIBLE");
 
+  // 1. Identify Plan / Carrier from input text
   let matchedPlan: InsurancePlan = "None";
-  let carrierName = "Carrier";
-  let frameAllowance = 0;
-  let isAllowancePlan = false;
-  let globalAllowance = 0;
+  let carrierName = "Vision Carrier";
 
-  if (text.includes("WELLCARE")) {
+  if (upper.includes("WELLCARE")) {
     matchedPlan = "WELLCARE MEDICARE";
     carrierName = "Wellcare Medicare";
-    isAllowancePlan = true;
-    const allowMatch = text.match(/\$?(\d{2,3})\s*(?:TOTAL|ANNUAL|ALLOWANCE)/i);
-    globalAllowance = allowMatch ? parseFloat(allowMatch[1]) : 350;
-  } else if (text.includes("EYEMED") || text.includes("EYE-MED")) {
-    matchedPlan = text.includes("AETNA") ? "AETNA EYE-MED" : "EYE-MED";
-    carrierName = matchedPlan;
-    const frameMatch = text.match(/(?:FRAME|RETAIL)\s*(?:ALLOWANCE|BENEFIT)?:?\s*\$?(\d{2,3})/i);
-    frameAllowance = frameMatch ? parseFloat(frameMatch[1]) : 150;
-  } else if (text.includes("VSP") || text.includes("EYEFINITY")) {
+  } else if (upper.includes("AETNA") && (upper.includes("EYE") || upper.includes("VISION"))) {
+    matchedPlan = "AETNA EYE-MED";
+    carrierName = "Aetna EyeMed";
+  } else if (upper.includes("EYEMED") || upper.includes("EYE-MED") || upper.includes("INSIGHT") || upper.includes("ACCESS PLAN")) {
+    matchedPlan = "EYE-MED";
+    carrierName = "EyeMed Vision Care";
+  } else if (upper.includes("VSP") || upper.includes("EYEFINITY") || upper.includes("SIGNATURE") || upper.includes("CHOICE PLAN")) {
     matchedPlan = "VSP";
     carrierName = "VSP Vision Care";
-    const frameMatch = text.match(/FRAME\s*(?:ALLOWANCE|BENEFIT)?:?\s*\$?(\d{2,3})/i);
-    frameAllowance = frameMatch ? parseFloat(frameMatch[1]) : 150;
-  } else if (text.includes("SPECTERA")) {
+  } else if (upper.includes("SPECTERA") || upper.includes("OPTUM")) {
     matchedPlan = "SPECTERA";
     carrierName = "Spectera Vision";
-  } else if (text.includes("MEDICAID")) {
+  } else if (upper.includes("MEDICAID") || upper.includes("KYHEALTH")) {
     matchedPlan = "MEDICAID";
     carrierName = "State Medicaid";
-  } else if (text.includes("PREMIER")) {
+  } else if (upper.includes("PREMIER")) {
     matchedPlan = "PREMIER VISION";
     carrierName = "Premier Vision";
-    frameAllowance = 130;
-  } else if (text.includes("UNUM")) {
+  } else if (upper.includes("UNUM")) {
     matchedPlan = "UNUM";
     carrierName = "Unum Vision";
-    frameAllowance = 130;
-  } else if (text.includes("NVA")) {
+  } else if (upper.includes("NVA")) {
     matchedPlan = "NVA";
     carrierName = "National Vision Administrators";
-    frameAllowance = 120;
-  } else if (text.includes("VBA")) {
+  } else if (upper.includes("VBA")) {
     matchedPlan = "VBA";
     carrierName = "Vision Benefits of America";
-    frameAllowance = 125;
+  } else if (upper.includes("HUMANA") || upper.includes("DAVIS") || upper.includes("BLUE CROSS") || upper.includes("ANTHEM")) {
+    matchedPlan = "EYE-MED"; // Uses standard allowance & copay schedule
+    carrierName = upper.includes("HUMANA") ? "Humana Vision" : "Commercial Vision Plan";
+  } else if (!isTerminated && (rawText.length > 5)) {
+    matchedPlan = "EYE-MED";
+    carrierName = "Vision Plan";
+  }
+
+  // 2. Dynamic Extraction of Copays and Allowances
+  let frameAllowance = 0;
+  let progressiveCopay = 0;
+  let arCopay = 0;
+  let globalAllowance = 0;
+  let isAllowancePlan = matchedPlan === "WELLCARE MEDICARE";
+
+  // Normalize "tier 1", "tier 2", etc. so numbers aren't confused with copays
+  const cleanText = rawText.replace(/tier\s*[1-4]/gi, "tier");
+
+  // Break text into clauses / lines
+  const lines = cleanText.split(/[\n;]|\.\s+/);
+  for (const line of lines) {
+    const parts = line.split(/,\s*|\band\b/i);
+    for (const part of parts) {
+      const p = part.trim();
+      if (!p) continue;
+
+      const dollarMatch = p.match(/\$\s*(\d+(?:\.\d{2})?)/)
+        || p.match(/(?:allowance|copay|cost|fee|is|at|balance)[:\s-]*(\d+(?:\.\d{2})?)/i)
+        || p.match(/(\d+(?:\.\d{2})?)\s*(?:dollars?|copay|allowance)/i);
+      
+      const val = dollarMatch ? parseFloat(dollarMatch[1]) : 0;
+      if (!val) continue;
+
+      if (/total allowance|annual allowance|lump sum/i.test(p)) {
+        globalAllowance = val;
+        isAllowancePlan = true;
+      } else if (/frame|eyewear/i.test(p) && !frameAllowance) {
+        frameAllowance = val;
+      } else if (/progressive|multifocal|pal/i.test(p) && !progressiveCopay) {
+        progressiveCopay = val;
+      } else if (/anti[-\s]*reflective|a\/?r|glare|coating/i.test(p) && !arCopay) {
+        arCopay = val;
+      }
+    }
+  }
+
+  // Fallback defaults only if frame allowance was not in text
+  if (!frameAllowance && !isAllowancePlan && matchedPlan !== "None" && matchedPlan !== "MEDICAID") {
+    // If user text specified frame without dollar, check digits
+    const anyFrameNum = rawText.match(/frame[^\d]*?(\d{2,3})/i);
+    if (anyFrameNum) frameAllowance = parseFloat(anyFrameNum[1]);
   }
 
   const hasBenefits = !isTerminated && matchedPlan !== "None";
 
-  let progressiveCopay = 0;
-  let arCopay = 0;
+  // Only provide plan defaults if NO copay was specified in the text
   if (hasBenefits && !isAllowancePlan) {
-    if (matchedPlan === "EYE-MED" || matchedPlan === "AETNA EYE-MED") {
-      progressiveCopay = 65;
-      arCopay = 45;
-    } else if (matchedPlan === "VSP") {
-      progressiveCopay = 55;
-      arCopay = 41;
-    } else if (matchedPlan === "SPECTERA") {
-      progressiveCopay = 70;
-      arCopay = 40;
-    } else if (
-      matchedPlan === "PREMIER VISION" ||
-      matchedPlan === "UNUM" ||
-      matchedPlan === "NVA" ||
-      matchedPlan === "VBA"
-    ) {
-      progressiveCopay = 60;
-      arCopay = 40;
+    if (!progressiveCopay) {
+      if (matchedPlan === "EYE-MED" || matchedPlan === "AETNA EYE-MED") progressiveCopay = 65;
+      else if (matchedPlan === "VSP") progressiveCopay = 55;
+      else if (matchedPlan === "SPECTERA") progressiveCopay = 70;
+      else if (matchedPlan === "PREMIER VISION" || matchedPlan === "UNUM" || matchedPlan === "NVA" || matchedPlan === "VBA") progressiveCopay = 60;
+    }
+    if (!arCopay) {
+      if (matchedPlan === "EYE-MED" || matchedPlan === "AETNA EYE-MED") arCopay = 45;
+      else if (matchedPlan === "VSP") arCopay = 41;
+      else if (matchedPlan === "SPECTERA") arCopay = 40;
+      else if (matchedPlan === "PREMIER VISION" || matchedPlan === "UNUM" || matchedPlan === "NVA" || matchedPlan === "VBA") arCopay = 40;
     }
   }
 
