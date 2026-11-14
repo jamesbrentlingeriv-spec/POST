@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">POST Optical</string>
+    <string name="optical_slip_title">PAL OPTICAL SLIP TOOL</string>
+    <string name="optician_title">Optician &amp; Job Details</string>
+    <string name="patient_info_title">Patient Information</string>
+    <string name="rx_title">Prescription (Rx)</string>
+    <string name="insurance_title">Insurance Coverage &amp; Benefits</string>
+    <string name="products_title">Optical Selection</string>
+    <string name="pricing_summary_title">Financial Summary &amp; Copays</string>
+</resources>

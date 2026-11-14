@@ -1,0 +1,32 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Glasses icon -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:fillColor="#00000000"
+        android:pathData="M24,54 C24,42 44,42 44,54 C44,66 24,66 24,54 Z"/>
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:fillColor="#00000000"
+        android:pathData="M64,54 C64,42 84,42 84,54 C84,66 64,66 64,54 Z"/>
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:fillColor="#00000000"
+        android:pathData="M44,54 L64,54"/>
+    <path
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="3"
+        android:fillColor="#00000000"
+        android:pathData="M14,50 L24,54"/>
+    <path
+        android:strokeColor="#38BDF8"
+        android:strokeWidth="3"
+        android:fillColor="#00000000"
+        android:pathData="M84,54 L94,50"/>
+</vector>
